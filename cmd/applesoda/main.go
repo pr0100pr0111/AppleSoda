@@ -36,7 +36,7 @@ func main() {
 	if *demoFlag {
 		p = player.NewFakePlayer()
 	} else {
-		p = player.NewMusicAppPlayer()
+		p = player.NewMusicAppPlayer(cfg.Music.AutoLaunch)
 	}
 
 	model := ui.NewModel(p, cfg)

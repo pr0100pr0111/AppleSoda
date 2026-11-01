@@ -1,6 +1,16 @@
 package player
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrMusicAppNotRunning   = errors.New("Music.app is not running (press 'o' to open)")
+	ErrAutomationPermission = errors.New("Automation permission denied (System Settings → Privacy & Security → Automation → Music)")
+	ErrArtworkNotFound      = errors.New("artwork not found")
+	ErrTrackUnplayable      = errors.New("track cannot be played")
+)
 
 type PlayerState int
 
@@ -21,6 +31,17 @@ func (s PlayerState) String() string {
 	}
 }
 
+func ParsePlayerState(s string) PlayerState {
+	switch s {
+	case "playing":
+		return StatePlaying
+	case "paused":
+		return StatePaused
+	default:
+		return StateStopped
+	}
+}
+
 type RepeatMode int
 
 const (
@@ -37,6 +58,17 @@ func (r RepeatMode) String() string {
 		return "one"
 	default:
 		return "off"
+	}
+}
+
+func ParseRepeatMode(s string) RepeatMode {
+	switch s {
+	case "all":
+		return RepeatAll
+	case "one":
+		return RepeatOne
+	default:
+		return RepeatOff
 	}
 }
 
@@ -64,14 +96,15 @@ type Playlist struct {
 }
 
 type Status struct {
-	State      PlayerState
-	Position   float64
-	Track      Track
-	Volume     int
-	Shuffle    bool
-	Repeat     RepeatMode
-	HasTrack   bool
-	PlaylistID string
+	State        PlayerState
+	Position     float64
+	Track        Track
+	Volume       int
+	Shuffle      bool
+	Repeat       RepeatMode
+	HasTrack     bool
+	PlaylistID   string
+	PlaylistName string
 }
 
 type Player interface {
