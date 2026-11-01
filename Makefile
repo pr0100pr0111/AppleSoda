@@ -6,13 +6,16 @@ GO := go
 GOFLAGS := -trimpath
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: build build-nocgo run demo test vet fmt verify clean
+.PHONY: build build-nocgo tapspike run demo test vet fmt verify clean
 
 build:
 	CGO_ENABLED=1 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/applesoda
 
 build-nocgo:
 	CGO_ENABLED=0 $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -tags nocgo -o $(BINARY) ./cmd/applesoda
+
+tapspike:
+	CGO_ENABLED=1 $(GO) build $(GOFLAGS) -o tapspike ./cmd/tapspike
 
 run: build
 	./$(BINARY)
@@ -34,5 +37,5 @@ verify: fmt vet test build build-nocgo
 	@echo "All checks passed."
 
 clean:
-	rm -f $(BINARY)
+	rm -f $(BINARY) tapspike
 	$(GO) clean -cache -testcache
