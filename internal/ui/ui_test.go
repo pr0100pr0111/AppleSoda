@@ -55,6 +55,9 @@ func TestModelWindowResizing(t *testing.T) {
 			if len(view.Content) == 0 {
 				t.Fatalf("expected non-empty view for %dx%d", w, h)
 			}
+			if !strings.Contains(view.Content, "Vol:") {
+				t.Fatalf("expected 'Vol:' in view content for %dx%d", w, h)
+			}
 		}
 	}
 }
@@ -100,11 +103,20 @@ func TestModelKeyNavigation(t *testing.T) {
 
 	mod, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	m = mod.(Model)
+	if m.active != panelTracks {
+		t.Fatalf("expected panelTracks after h from now playing, got %v", m.active)
+	}
 
-	mod, _ = m.Update(tea.KeyPressMsg{Code: '\t'})
+	mod, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	m = mod.(Model)
 	if m.active != panelLibrary {
-		t.Fatalf("expected active panelLibrary after cycle Tab, got %v", m.active)
+		t.Fatalf("expected panelLibrary after second h, got %v", m.active)
+	}
+
+	mod, _ = m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	m = mod.(Model)
+	if m.active != panelTracks {
+		t.Fatalf("expected panelTracks after l from library, got %v", m.active)
 	}
 }
 
@@ -224,5 +236,11 @@ func TestModelTickAndStatusInterpolation(t *testing.T) {
 	m = mod.(Model)
 	if m.interpPos <= 10.0 {
 		t.Fatalf("expected interpPos > 10.0 after tick, got %f", m.interpPos)
+	}
+
+	mod, cmd := m.Update(tea.KeyPressMsg{Code: ']', Text: "]"})
+	m = mod.(Model)
+	if cmd == nil {
+		t.Fatal("expected seek cmd on ']'")
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/pr0100pr0111/AppleSoda/internal/player"
 )
 
@@ -422,12 +423,6 @@ func (m Model) renderTransportArea() string {
 	}
 
 	timeStr := fmt.Sprintf("%s / %s", formatDuration(cur), formatDuration(dur))
-	barWidth := m.width - len(timeStr) - 35
-	if barWidth < 10 {
-		barWidth = 10
-	}
-
-	progBar := renderProgressBar(barWidth, ratio, m.theme)
 
 	var stateIcon string
 	switch m.status.State {
@@ -439,22 +434,47 @@ func (m Model) renderTransportArea() string {
 		stateIcon = lipgloss.NewStyle().Foreground(m.theme.Muted).Render("⏹ Stop")
 	}
 
-	volBar := renderVolumeBar(8, m.status.Volume, m.theme)
-	volStr := fmt.Sprintf("Vol:%d%% %s", m.status.Volume, volBar)
+	volBarSize := 6
+	if m.width < 80 {
+		volBarSize = 4
+	}
+	volBar := renderVolumeBar(volBarSize, m.status.Volume, m.theme)
+	volStr := fmt.Sprintf("Vol:%d%% [%s]", m.status.Volume, volBar)
 
-	shufStr := "[S:off]"
+	var shufStr string
 	if m.status.Shuffle {
-		shufStr = lipgloss.NewStyle().Foreground(m.theme.Accent).Render("[S:on]")
+		shufStr = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).Render("[shuf:on]")
+	} else {
+		shufStr = lipgloss.NewStyle().Foreground(m.theme.Muted).Render("[shuf:off]")
 	}
 
-	repStr := fmt.Sprintf("[R:%s]", m.status.Repeat.String())
+	var repStr string
 	if m.status.Repeat != player.RepeatOff {
-		repStr = lipgloss.NewStyle().Foreground(m.theme.Accent).Render(repStr)
+		repStr = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).Render(fmt.Sprintf("[rep:%s]", m.status.Repeat.String()))
+	} else {
+		repStr = lipgloss.NewStyle().Foreground(m.theme.Muted).Render("[rep:off]")
 	}
 
-	line1 := fmt.Sprintf(" %s  %s %s  %s  %s %s", stateIcon, timeStr, progBar, volStr, shufStr, repStr)
+	leftPart := fmt.Sprintf(" %s  %s ", stateIcon, timeStr)
+	rightPart := fmt.Sprintf("  %s  %s %s", volStr, shufStr, repStr)
 
-	keysLine := lipgloss.NewStyle().Foreground(m.theme.Muted).Render(" Space:pause  n/p:skip  ←/→:seek  +/-:vol  s:shuf  r:rep  v:viz  t:theme  c:art  L:lyr  ?:help")
+	leftW := ansi.StringWidth(leftPart)
+	rightW := ansi.StringWidth(rightPart)
+
+	barWidth := m.width - leftW - rightW
+	if barWidth < 5 {
+		barWidth = 5
+	}
+
+	progBar := renderProgressBar(barWidth, ratio, m.theme)
+	line1 := leftPart + progBar + rightPart
+	line1 = ansi.Truncate(line1, m.width, "")
+
+	keysText := " Space:pause  n/p:skip  [/]:seek  +/-:vol  s:shuf  r:rep  v:viz  t:theme  c:art  L:lyr  ?:help"
+	if m.width < 90 {
+		keysText = " Space:pause  n/p:skip  [/]:seek  +/-:vol  s:shuf  ?:help"
+	}
+	keysLine := lipgloss.NewStyle().Foreground(m.theme.Muted).Render(truncateStr(keysText, m.width))
 
 	return lipgloss.JoinVertical(lipgloss.Left, line1, keysLine)
 }

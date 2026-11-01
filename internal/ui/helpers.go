@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	lipgloss "charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/pr0100pr0111/AppleSoda/internal/theme"
 )
 
@@ -12,14 +13,7 @@ func truncateStr(s string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
 	}
-	runes := []rune(s)
-	if len(runes) <= maxWidth {
-		return s
-	}
-	if maxWidth <= 1 {
-		return "…"
-	}
-	return string(runes[:maxWidth-1]) + "…"
+	return ansi.Truncate(s, maxWidth, "…")
 }
 
 func formatDuration(seconds float64) string {
@@ -66,16 +60,16 @@ func renderVolumeBar(width int, volume int, th theme.Theme) string {
 	empty := width - filled
 
 	filledStyle := lipgloss.NewStyle().Foreground(th.Accent)
-	emptyStyle := lipgloss.NewStyle().Foreground(th.ProgressEmpty)
+	emptyStyle := lipgloss.NewStyle().Foreground(th.Muted)
 
 	return filledStyle.Render(strings.Repeat("█", filled)) +
 		emptyStyle.Render(strings.Repeat("░", empty))
 }
 
 func padRight(s string, width int) string {
-	runes := []rune(s)
-	if len(runes) >= width {
+	w := ansi.StringWidth(s)
+	if w >= width {
 		return s
 	}
-	return s + strings.Repeat(" ", width-len(runes))
+	return s + strings.Repeat(" ", width-w)
 }

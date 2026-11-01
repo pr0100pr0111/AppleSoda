@@ -147,12 +147,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+u":
 		m.moveCursor(-10)
 		return m, nil
-	case "h":
-		if m.active == panelTracks {
+	case "h", "left":
+		if m.active == panelNowPlaying {
+			m.active = panelTracks
+		} else if m.active == panelTracks {
 			m.active = panelLibrary
 		}
 		return m, nil
-	case "l":
+	case "l", "right":
 		if m.active == panelLibrary && len(m.playlists) > 0 {
 			m.active = panelTracks
 			pl := m.playlists[m.selectedPL]
@@ -160,6 +162,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.tracksLoading = true
 				return m, m.loadTracks(pl.PersistentID)
 			}
+		} else if m.active == panelTracks {
+			m.active = panelNowPlaying
 		}
 		return m, nil
 	case "enter":
@@ -170,13 +174,13 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.nextTrack()
 	case "p":
 		return m, m.prevTrack()
-	case "left":
+	case "[", ",", "shift+left", "х", "б":
 		return m, m.seek(m.interpPos - 5)
-	case "right":
+	case "]", ".", "shift+right", "ъ", "ю":
 		return m, m.seek(m.interpPos + 5)
-	case "shift+left":
+	case "{", "<", "Х", "Б":
 		return m, m.seek(m.interpPos - 30)
-	case "shift+right":
+	case "}", ">", "Ъ", "Ю":
 		return m, m.seek(m.interpPos + 30)
 	case "+", "=":
 		return m, m.setVolume(m.status.Volume + 5)
@@ -348,16 +352,6 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	m.lastClickTime = time.Now()
 	m.lastClickRow = mTarget.Y
 	m.lastClickPan = m.active
-
-	if mTarget.Y >= m.height-3 {
-		barStart := 15
-		barWidth := m.width - 30
-		if barWidth > 0 && mTarget.X >= barStart && mTarget.X <= barStart+barWidth && m.status.Track.Duration > 0 {
-			ratio := float64(mTarget.X-barStart) / float64(barWidth)
-			newPos := ratio * m.status.Track.Duration
-			return m, m.seek(newPos)
-		}
-	}
 
 	leftColWidth := 30
 	if m.width >= 120 {
