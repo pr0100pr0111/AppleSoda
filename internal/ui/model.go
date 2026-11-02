@@ -89,6 +89,14 @@ type Model struct {
 	lastClickTime time.Time
 	lastClickRow  int
 	lastClickPan  panel
+
+	playingPLID      string
+	playingTracks    []player.Track
+	playingTrackID   string
+	playlistFinished bool
+	shufflePool      []string
+	shuffleHistory   []string
+	lastPlayActionAt time.Time
 }
 
 func NewModel(p player.Player, cfg config.Config, store *library.Store) Model {

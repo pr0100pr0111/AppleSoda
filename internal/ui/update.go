@@ -33,6 +33,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.interpPos = msg.status.Position
 			m.interpState = msg.status.State
 			m.lastPollAt = time.Now()
+
+			if m.playingTrackID != "" && msg.status.Track.PersistentID != "" && msg.status.Track.PersistentID != m.playingTrackID {
+				if m.isTrackInPlayingList(msg.status.Track.PersistentID) {
+					m.playingTrackID = msg.status.Track.PersistentID
+				}
+			}
+
+			if m.shouldAutoAdvance(msg.status) {
+				if m.status.Repeat == player.RepeatOne {
+					m.lastPlayActionAt = time.Now()
+					return m, m.playTrack(m.playingPLID, m.playingTrackID)
+				}
+				return m.handleNextTrack()
+			}
 		}
 		return m, nil
 	case playlistsMsg:
@@ -205,9 +219,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "space":
 		return m, m.togglePlayPause()
 	case "n":
-		return m, m.nextTrack()
+		return m.handleNextTrack()
 	case "p":
-		return m, m.prevTrack()
+		return m.handlePrevTrack()
 	case "z":
 		m.scrollToPlaying()
 		return m, nil
@@ -224,7 +238,13 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "-":
 		return m, m.setVolume(m.status.Volume - 5)
 	case "s":
-		return m, m.setShuffle(!m.status.Shuffle)
+		newShuffle := !m.status.Shuffle
+		m.status.Shuffle = newShuffle
+		if newShuffle {
+			tracks, _ := m.resolvePlayingContext()
+			m.initShufflePool(m.playingTrackID, tracks)
+		}
+		return m, m.setShuffle(newShuffle)
 	case "r":
 		return m, m.setRepeat(m.status.Repeat.Next())
 	case "/":
@@ -291,6 +311,14 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 		curTracks := m.currentDisplayTracks()
 		if len(curTracks) > 0 && m.selectedTrack < len(curTracks) {
 			t := curTracks[m.selectedTrack]
+			m.playingPLID = m.currentPLID
+			m.playingTracks = curTracks
+			m.playingTrackID = t.PersistentID
+			m.playlistFinished = false
+			m.lastPlayActionAt = time.Now()
+			if m.status.Shuffle {
+				m.initShufflePool(t.PersistentID, curTracks)
+			}
 			return m, m.playTrack(m.currentPLID, t.PersistentID)
 		}
 	case panelNowPlaying:
