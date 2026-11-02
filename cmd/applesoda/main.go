@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/pr0100pr0111/AppleSoda/internal/config"
+	"github.com/pr0100pr0111/AppleSoda/internal/library"
 	"github.com/pr0100pr0111/AppleSoda/internal/player"
 	"github.com/pr0100pr0111/AppleSoda/internal/ui"
 )
@@ -39,7 +40,11 @@ func main() {
 		p = player.NewMusicAppPlayer(cfg.Music.AutoLaunch)
 	}
 
-	model := ui.NewModel(p, cfg)
+	cacheDir, _ := config.CacheDir()
+	store := library.NewStore(cacheDir)
+	_ = store.LoadFromDisk()
+
+	model := ui.NewModel(p, cfg, store)
 	prog := tea.NewProgram(model)
 	if _, err := prog.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "applesoda error: %v\n", err)

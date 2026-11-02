@@ -3,6 +3,8 @@ package player
 import (
 	"context"
 	"errors"
+
+	"github.com/pr0100pr0111/AppleSoda/internal/library"
 )
 
 var (
@@ -76,24 +78,8 @@ func (r RepeatMode) Next() RepeatMode {
 	return (r + 1) % 3
 }
 
-type Track struct {
-	PersistentID string
-	Name         string
-	Artist       string
-	Album        string
-	Duration     float64
-	TrackNumber  int
-	DiscNumber   int
-	Genre        string
-	Year         int
-}
-
-type Playlist struct {
-	PersistentID string
-	Name         string
-	TrackCount   int
-	Kind         string
-}
+type Track = library.Track
+type Playlist = library.Playlist
 
 type Status struct {
 	State        PlayerState

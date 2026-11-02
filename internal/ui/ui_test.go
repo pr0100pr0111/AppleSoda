@@ -7,13 +7,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/pr0100pr0111/AppleSoda/internal/config"
+	"github.com/pr0100pr0111/AppleSoda/internal/library"
 	"github.com/pr0100pr0111/AppleSoda/internal/player"
 )
 
 func TestModelInit(t *testing.T) {
 	p := player.NewFakePlayer()
 	cfg := config.Default()
-	m := NewModel(p, cfg)
+	m := NewModel(p, cfg, nil)
 
 	cmd := m.Init()
 	if cmd == nil {
@@ -24,7 +25,7 @@ func TestModelInit(t *testing.T) {
 func TestModelWindowResizing(t *testing.T) {
 	p := player.NewFakePlayer()
 	cfg := config.Default()
-	m := NewModel(p, cfg)
+	m := NewModel(p, cfg, nil)
 
 	sizes := [][2]int{
 		{40, 12},
@@ -65,7 +66,7 @@ func TestModelWindowResizing(t *testing.T) {
 func TestModelKeyNavigation(t *testing.T) {
 	p := player.NewFakePlayer()
 	cfg := config.Default()
-	m := NewModel(p, cfg)
+	m := NewModel(p, cfg, nil)
 	mod, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = mod.(Model)
 
@@ -123,7 +124,7 @@ func TestModelKeyNavigation(t *testing.T) {
 func TestModelToggles(t *testing.T) {
 	p := player.NewFakePlayer()
 	cfg := config.Default()
-	m := NewModel(p, cfg)
+	m := NewModel(p, cfg, nil)
 	mod, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = mod.(Model)
 
@@ -171,7 +172,7 @@ func TestModelToggles(t *testing.T) {
 func TestModelFiltering(t *testing.T) {
 	p := player.NewFakePlayer()
 	cfg := config.Default()
-	m := NewModel(p, cfg)
+	m := NewModel(p, cfg, nil)
 	mod, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = mod.(Model)
 
@@ -214,7 +215,7 @@ func TestModelFiltering(t *testing.T) {
 func TestModelTickAndStatusInterpolation(t *testing.T) {
 	p := player.NewFakePlayer()
 	cfg := config.Default()
-	m := NewModel(p, cfg)
+	m := NewModel(p, cfg, nil)
 	mod, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = mod.(Model)
 
@@ -242,5 +243,80 @@ func TestModelTickAndStatusInterpolation(t *testing.T) {
 	m = mod.(Model)
 	if cmd == nil {
 		t.Fatal("expected seek cmd on ']'")
+	}
+}
+
+func TestModelStoreSeeding(t *testing.T) {
+	p := player.NewFakePlayer()
+	cfg := config.Default()
+	store := library.NewStore(t.TempDir())
+	cachedPls := []library.Playlist{
+		{PersistentID: "p1", Name: "Cached Hits", TrackCount: 2},
+	}
+	cachedTrs := []library.Track{
+		{PersistentID: "t1", Name: "Cached Track 1", Artist: "Artist 1"},
+		{PersistentID: "t2", Name: "Cached Track 2", Artist: "Artist 2"},
+	}
+	store.SetPlaylists(cachedPls)
+	store.SetTracks("p1", cachedTrs)
+
+	m := NewModel(p, cfg, store)
+	if len(m.playlists) != 1 || m.playlists[0].Name != "Cached Hits" {
+		t.Fatalf("expected cached playlists, got %v", m.playlists)
+	}
+	if len(m.tracks) != 2 || m.tracks[0].Name != "Cached Track 1" {
+		t.Fatalf("expected cached tracks, got %v", m.tracks)
+	}
+}
+
+func TestModelScrollToPlaying(t *testing.T) {
+	p := player.NewFakePlayer()
+	cfg := config.Default()
+	m := NewModel(p, cfg, nil)
+	m.tracks = []library.Track{
+		{PersistentID: "t1", Name: "Track 1"},
+		{PersistentID: "t2", Name: "Track 2"},
+		{PersistentID: "t3", Name: "Track 3"},
+	}
+	m.status = player.Status{
+		HasTrack: true,
+		Track: player.Track{
+			PersistentID: "t3",
+		},
+	}
+	m.selectedTrack = 0
+
+	mod, _ := m.Update(tea.KeyPressMsg{Code: 'z', Text: "z"})
+	m = mod.(Model)
+
+	if m.selectedTrack != 2 {
+		t.Fatalf("expected selectedTrack 2 after 'z', got %d", m.selectedTrack)
+	}
+	if m.active != panelTracks {
+		t.Fatalf("expected panelTracks active after 'z', got %v", m.active)
+	}
+}
+
+func TestModelEscClearsFilter(t *testing.T) {
+	p := player.NewFakePlayer()
+	cfg := config.Default()
+	m := NewModel(p, cfg, nil)
+	m.tracks = []library.Track{
+		{PersistentID: "t1", Name: "Apple"},
+		{PersistentID: "t2", Name: "Banana"},
+	}
+	m.filterText = "app"
+	m.applyFilter()
+	if len(m.filteredIdx) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(m.filteredIdx))
+	}
+
+	mod, _ := m.Update(tea.KeyPressMsg{Code: 0x1b})
+	m = mod.(Model)
+	if m.filterText != "" {
+		t.Fatalf("expected filterText empty after Esc, got %q", m.filterText)
+	}
+	if m.filteredIdx != nil {
+		t.Fatalf("expected filteredIdx nil after Esc, got %v", m.filteredIdx)
 	}
 }

@@ -67,3 +67,13 @@ source = "invalid"
 		t.Fatal("expected error for invalid source")
 	}
 }
+
+func TestCacheDir(t *testing.T) {
+	dir, err := CacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dir == "" {
+		t.Fatal("expected non-empty cache dir")
+	}
+}

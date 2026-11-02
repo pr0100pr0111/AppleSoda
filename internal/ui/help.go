@@ -24,6 +24,7 @@ func renderHelpModal(width, height int, th theme.Theme) string {
 		{"s", "Toggle shuffle (random order)"},
 		{"r", "Cycle repeat (off/all/one)"},
 		{"/", "Filter tracklist (Esc to cancel)"},
+		{"z", "Jump to currently playing track"},
 		{"v", "Toggle visualizer mode (bars/mirror)"},
 		{"t", "Cycle theme (apple/catppuccin/etc)"},
 		{"c / L", "Toggle cover / toggle lyrics"},

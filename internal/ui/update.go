@@ -2,11 +2,11 @@ package ui
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/pr0100pr0111/AppleSoda/internal/config"
+	"github.com/pr0100pr0111/AppleSoda/internal/library"
 	"github.com/pr0100pr0111/AppleSoda/internal/player"
 	"github.com/pr0100pr0111/AppleSoda/internal/theme"
 )
@@ -41,8 +41,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.playlists = msg.playlists
 			m.playlistsLoaded = true
+			if m.store != nil {
+				m.store.SetPlaylists(msg.playlists)
+			}
 			if len(m.playlists) > 0 && m.currentPLID == "" {
 				m.currentPLID = m.playlists[0].PersistentID
+				if m.store != nil {
+					if cachedTrs, ok := m.store.GetTracks(m.currentPLID); ok && len(cachedTrs) > 0 {
+						m.tracks = cachedTrs
+						m.tracksTotal = len(cachedTrs)
+						m.applyFilter()
+					}
+				}
 				m.tracksLoading = true
 				return m, m.loadTracks(m.currentPLID)
 			}
@@ -58,6 +68,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentPLID = msg.playlistID
 			m.selectedTrack = 0
 			m.trackScroll = 0
+			if m.store != nil {
+				m.store.SetTracks(msg.playlistID, msg.tracks)
+			}
 			m.applyFilter()
 		}
 		return m, nil
@@ -94,7 +107,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	if m.filterMode {
 		switch key {
-		case "esc", "enter":
+		case "esc":
+			m.filterMode = false
+			m.filterText = ""
+			m.applyFilter()
+			return m, nil
+		case "enter":
 			m.filterMode = false
 			return m, nil
 		case "backspace":
@@ -114,6 +132,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch key {
+	case "esc":
+		if m.filterText != "" {
+			m.filterText = ""
+			m.applyFilter()
+			return m, nil
+		}
 	case "ctrl+c", "q":
 		m.quitting = true
 		return m, tea.Quit
@@ -159,6 +183,16 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.active = panelTracks
 			pl := m.playlists[m.selectedPL]
 			if pl.PersistentID != m.currentPLID {
+				if m.store != nil {
+					if cachedTrs, ok := m.store.GetTracks(pl.PersistentID); ok && len(cachedTrs) > 0 {
+						m.tracks = cachedTrs
+						m.tracksTotal = len(cachedTrs)
+						m.currentPLID = pl.PersistentID
+						m.selectedTrack = 0
+						m.trackScroll = 0
+						m.applyFilter()
+					}
+				}
 				m.tracksLoading = true
 				return m, m.loadTracks(pl.PersistentID)
 			}
@@ -174,6 +208,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.nextTrack()
 	case "p":
 		return m, m.prevTrack()
+	case "z":
+		m.scrollToPlaying()
+		return m, nil
 	case "[", ",", "shift+left", "х", "б":
 		return m, m.seek(m.interpPos - 5)
 	case "]", ".", "shift+right", "ъ", "ю":
@@ -236,6 +273,16 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 			pl := m.playlists[m.selectedPL]
 			m.active = panelTracks
 			if pl.PersistentID != m.currentPLID {
+				if m.store != nil {
+					if cachedTrs, ok := m.store.GetTracks(pl.PersistentID); ok && len(cachedTrs) > 0 {
+						m.tracks = cachedTrs
+						m.tracksTotal = len(cachedTrs)
+						m.currentPLID = pl.PersistentID
+						m.selectedTrack = 0
+						m.trackScroll = 0
+						m.applyFilter()
+					}
+				}
 				m.tracksLoading = true
 				return m, m.loadTracks(pl.PersistentID)
 			}
@@ -311,19 +358,23 @@ func (m *Model) applyFilter() {
 		m.filteredIdx = nil
 		return
 	}
-	query := strings.ToLower(m.filterText)
-	var matches []int
-	for i, t := range m.tracks {
-		name := strings.ToLower(t.Name)
-		artist := strings.ToLower(t.Artist)
-		album := strings.ToLower(t.Album)
-		if strings.Contains(name, query) || strings.Contains(artist, query) || strings.Contains(album, query) {
-			matches = append(matches, i)
-		}
-	}
-	m.filteredIdx = matches
+	m.filteredIdx = library.FilterIndices(m.tracks, m.filterText)
 	m.selectedTrack = 0
 	m.trackScroll = 0
+}
+
+func (m *Model) scrollToPlaying() {
+	if !m.status.HasTrack {
+		return
+	}
+	displayTracks := m.currentDisplayTracks()
+	for i, t := range displayTracks {
+		if t.PersistentID == m.status.Track.PersistentID {
+			m.selectedTrack = i
+			m.active = panelTracks
+			return
+		}
+	}
 }
 
 func (m Model) currentDisplayTracks() []player.Track {

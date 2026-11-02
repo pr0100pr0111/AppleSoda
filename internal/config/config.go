@@ -66,6 +66,17 @@ func ConfigDir() (string, error) {
 	return configDir()
 }
 
+func CacheDir() (string, error) {
+	if v := os.Getenv("XDG_CACHE_HOME"); v != "" {
+		return filepath.Join(v, "applesoda"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("home dir: %w", err)
+	}
+	return filepath.Join(home, ".cache", "applesoda"), nil
+}
+
 func Load(path string) (Config, error) {
 	cfg := Default()
 	if path == "" {

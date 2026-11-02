@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/pr0100pr0111/AppleSoda/internal/config"
+	"github.com/pr0100pr0111/AppleSoda/internal/library"
 	"github.com/pr0100pr0111/AppleSoda/internal/player"
 	"github.com/pr0100pr0111/AppleSoda/internal/theme"
 )
@@ -49,6 +50,7 @@ type pollMsg time.Time
 
 type Model struct {
 	player    player.Player
+	store     *library.Store
 	cfg       config.Config
 	theme     theme.Theme
 	width     int
@@ -89,14 +91,16 @@ type Model struct {
 	lastClickPan  panel
 }
 
-func NewModel(p player.Player, cfg config.Config) Model {
+func NewModel(p player.Player, cfg config.Config, store *library.Store) Model {
 	th := theme.Get(cfg.Theme)
 	st := config.LoadState()
 	if st.Theme != "" {
 		th = theme.Get(st.Theme)
 	}
-	return Model{
+
+	m := Model{
 		player:     p,
+		store:      store,
 		cfg:        cfg,
 		theme:      th,
 		showCover:  cfg.UI.Cover,
@@ -104,6 +108,21 @@ func NewModel(p player.Player, cfg config.Config) Model {
 		vizMode:    cfg.Visualizer.Mode,
 		active:     panelLibrary,
 	}
+
+	if store != nil {
+		cachedPls := store.GetPlaylists()
+		if len(cachedPls) > 0 {
+			m.playlists = cachedPls
+			m.playlistsLoaded = true
+			m.currentPLID = cachedPls[0].PersistentID
+			if cachedTrs, ok := store.GetTracks(m.currentPLID); ok && len(cachedTrs) > 0 {
+				m.tracks = cachedTrs
+				m.tracksTotal = len(cachedTrs)
+			}
+		}
+	}
+
+	return m
 }
 
 func (m Model) Init() tea.Cmd {
