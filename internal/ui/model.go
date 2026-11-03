@@ -90,6 +90,10 @@ type Model struct {
 	lastClickRow  int
 	lastClickPan  panel
 
+	lastVolumeCmd  time.Time
+	lastSeekCmd    time.Time
+	lastPauseCmd   time.Time
+
 	playingPLID      string
 	playingTracks    []player.Track
 	playingTrackID   string

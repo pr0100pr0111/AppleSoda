@@ -383,7 +383,7 @@ func (m Model) renderNowPlayingPanel(width, height int) string {
 
 func (m Model) renderVisualizerArea(height int) string {
 	borderColor := m.theme.Border
-	if m.cfg.Visualizer.Pulse && m.status.State == player.StatePlaying {
+	if m.cfg.Visualizer.Pulse && m.interpState == player.StatePlaying {
 		borderColor = m.theme.Accent
 	}
 
@@ -408,7 +408,7 @@ func (m Model) renderVisualizerArea(height int) string {
 		tagStyle.Render("[simulated]"),
 		modeStyle.Render(fmt.Sprintf("[%s]", m.vizMode)))
 
-	bars := renderSimulatedVisualizer(innerW, innerH-1, m.vizMode, m.vizPhase, m.status.State == player.StatePlaying, m.theme)
+	bars := renderSimulatedVisualizer(innerW, innerH-1, m.vizMode, m.vizPhase, m.interpState == player.StatePlaying, m.theme)
 
 	content := title + "\n" + bars
 	return style.Render(content)
@@ -425,7 +425,7 @@ func (m Model) renderTransportArea() string {
 	timeStr := fmt.Sprintf("%s / %s", formatDuration(cur), formatDuration(dur))
 
 	var stateIcon string
-	switch m.status.State {
+	switch m.interpState {
 	case player.StatePlaying:
 		stateIcon = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).Render("▶ Play")
 	case player.StatePaused:

@@ -31,7 +31,7 @@ func (s *SimulatedCapture) Start() error {
 	s.running = true
 	s.stopCh = make(chan struct{})
 
-	go s.generateLoop()
+	go s.generateLoop(s.stopCh)
 	return nil
 }
 
@@ -48,7 +48,7 @@ func (s *SimulatedCapture) Stop() error {
 	return nil
 }
 
-func (s *SimulatedCapture) generateLoop() {
+func (s *SimulatedCapture) generateLoop(stopCh chan struct{}) {
 	ticker := time.NewTicker(33 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -57,7 +57,7 @@ func (s *SimulatedCapture) generateLoop() {
 
 	for {
 		select {
-		case <-s.stopCh:
+		case <-stopCh:
 			return
 		case <-ticker.C:
 			s.mu.Lock()

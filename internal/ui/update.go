@@ -28,11 +28,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.statusErr = msg.err.Error()
 		} else {
+			const settle = 1500 * time.Millisecond
+
+			savedInterpPos := m.interpPos
+			savedVolume := m.status.Volume
+			savedInterpState := m.interpState
+
 			m.statusErr = ""
 			m.status = msg.status
-			m.interpPos = msg.status.Position
-			m.interpState = msg.status.State
 			m.lastPollAt = time.Now()
+
+			if time.Since(m.lastSeekCmd) <= settle {
+				m.interpPos = savedInterpPos
+				m.status.Position = savedInterpPos
+			} else {
+				m.interpPos = msg.status.Position
+			}
+
+			if time.Since(m.lastVolumeCmd) <= settle {
+				m.status.Volume = savedVolume
+			}
+
+			if time.Since(m.lastPauseCmd) <= settle {
+				m.interpState = savedInterpState
+			} else {
+				m.interpState = msg.status.State
+			}
 
 			if m.playingTrackID != "" && msg.status.Track.PersistentID != "" && msg.status.Track.PersistentID != m.playingTrackID {
 				if m.isTrackInPlayingList(msg.status.Track.PersistentID) {
@@ -92,7 +113,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.statusErr = msg.err.Error()
 		}
-		return m, m.pollStatus()
+		return m, nil
 	case tickMsg:
 		m.vizPhase += 0.1
 		if m.interpState == player.StatePlaying {
@@ -217,6 +238,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		return m.handleEnter()
 	case "space":
+		if m.interpState == player.StatePlaying {
+			m.interpState = player.StatePaused
+		} else {
+			m.interpState = player.StatePlaying
+		}
+		m.lastPauseCmd = time.Now()
 		return m, m.togglePlayPause()
 	case "n":
 		return m.handleNextTrack()
@@ -226,17 +253,53 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.scrollToPlaying()
 		return m, nil
 	case "[", ",", "shift+left", "х", "б":
-		return m, m.seek(m.interpPos - 5)
+		newPos := m.interpPos - 5
+		if newPos < 0 {
+			newPos = 0
+		}
+		m.interpPos = newPos
+		m.lastSeekCmd = time.Now()
+		return m, m.seek(newPos)
 	case "]", ".", "shift+right", "ъ", "ю":
-		return m, m.seek(m.interpPos + 5)
+		newPos := m.interpPos + 5
+		if m.status.Track.Duration > 0 && newPos > m.status.Track.Duration {
+			newPos = m.status.Track.Duration
+		}
+		m.interpPos = newPos
+		m.lastSeekCmd = time.Now()
+		return m, m.seek(newPos)
 	case "{", "<", "Х", "Б":
-		return m, m.seek(m.interpPos - 30)
+		newPos := m.interpPos - 30
+		if newPos < 0 {
+			newPos = 0
+		}
+		m.interpPos = newPos
+		m.lastSeekCmd = time.Now()
+		return m, m.seek(newPos)
 	case "}", ">", "Ъ", "Ю":
-		return m, m.seek(m.interpPos + 30)
+		newPos := m.interpPos + 30
+		if m.status.Track.Duration > 0 && newPos > m.status.Track.Duration {
+			newPos = m.status.Track.Duration
+		}
+		m.interpPos = newPos
+		m.lastSeekCmd = time.Now()
+		return m, m.seek(newPos)
 	case "+", "=":
-		return m, m.setVolume(m.status.Volume + 5)
+		newVol := m.status.Volume + 5
+		if newVol > 100 {
+			newVol = 100
+		}
+		m.status.Volume = newVol
+		m.lastVolumeCmd = time.Now()
+		return m, m.setVolume(newVol)
 	case "-":
-		return m, m.setVolume(m.status.Volume - 5)
+		newVol := m.status.Volume - 5
+		if newVol < 0 {
+			newVol = 0
+		}
+		m.status.Volume = newVol
+		m.lastVolumeCmd = time.Now()
+		return m, m.setVolume(newVol)
 	case "s":
 		newShuffle := !m.status.Shuffle
 		m.status.Shuffle = newShuffle
