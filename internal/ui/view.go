@@ -331,7 +331,11 @@ func (m Model) renderNowPlayingPanel(width, height int) string {
 		if artH > 8 {
 			artH = 8
 		}
-		art := renderArtworkStub(innerW, artH, m.theme)
+		pid := m.status.Track.PersistentID
+		art, ok := m.artworkCache[pid]
+		if !ok {
+			art = renderArtworkStub(innerW, artH, m.theme)
+		}
 		if art != "" {
 			sections = append(sections, art)
 		}

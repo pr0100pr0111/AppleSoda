@@ -62,12 +62,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if m.shouldAutoAdvance(msg.status) {
+				var nextCmd tea.Cmd
 				if m.status.Repeat == player.RepeatOne {
 					m.lastPlayActionAt = time.Now()
-					return m, m.playTrack(m.playingPLID, m.playingTrackID)
+					nextCmd = m.playTrack(m.playingPLID, m.playingTrackID)
+				} else {
+					var nextModel tea.Model
+					nextModel, nextCmd = m.handleNextTrack()
+					m = nextModel.(Model)
 				}
-				return m.handleNextTrack()
+				return m, tea.Batch(nextCmd, m.maybeLoadArtwork())
 			}
+
+			return m, m.maybeLoadArtwork()
+		}
+		return m, nil
+	case artworkMsg:
+		m.artworkLoading = false
+		if msg.err == nil && msg.rendered != "" {
+			m.artworkCache[msg.persistentID] = msg.rendered
+			m.lastArtworkID = msg.persistentID
 		}
 		return m, nil
 	case playlistsMsg:

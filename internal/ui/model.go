@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/pr0100pr0111/AppleSoda/internal/artwork"
 	"github.com/pr0100pr0111/AppleSoda/internal/config"
 	"github.com/pr0100pr0111/AppleSoda/internal/library"
 	"github.com/pr0100pr0111/AppleSoda/internal/player"
@@ -43,6 +44,12 @@ type tracksMsg struct {
 
 type actionDoneMsg struct {
 	err error
+}
+
+type artworkMsg struct {
+	persistentID string
+	rendered     string
+	err          error
 }
 
 type tickMsg time.Time
@@ -90,9 +97,13 @@ type Model struct {
 	lastClickRow  int
 	lastClickPan  panel
 
-	lastVolumeCmd  time.Time
-	lastSeekCmd    time.Time
-	lastPauseCmd   time.Time
+	lastVolumeCmd time.Time
+	lastSeekCmd   time.Time
+	lastPauseCmd  time.Time
+
+	artworkCache   map[string]string
+	artworkLoading bool
+	lastArtworkID  string
 
 	playingPLID      string
 	playingTracks    []player.Track
@@ -111,14 +122,15 @@ func NewModel(p player.Player, cfg config.Config, store *library.Store) Model {
 	}
 
 	m := Model{
-		player:     p,
-		store:      store,
-		cfg:        cfg,
-		theme:      th,
-		showCover:  cfg.UI.Cover,
-		showLyrics: cfg.UI.Lyrics,
-		vizMode:    cfg.Visualizer.Mode,
-		active:     panelLibrary,
+		player:       p,
+		store:        store,
+		cfg:          cfg,
+		theme:        th,
+		showCover:    cfg.UI.Cover,
+		showLyrics:   cfg.UI.Lyrics,
+		vizMode:      cfg.Visualizer.Mode,
+		active:       panelLibrary,
+		artworkCache: make(map[string]string),
 	}
 
 	if store != nil {
@@ -264,4 +276,40 @@ func (m Model) pollCmd() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return pollMsg(t)
 	})
+}
+
+func (m *Model) maybeLoadArtwork() tea.Cmd {
+	if !m.showCover || !m.status.HasTrack || m.artworkLoading {
+		return nil
+	}
+	if m.status.Track.PersistentID == m.lastArtworkID {
+		return nil
+	}
+	artH := m.height / 3
+	if artH > 8 {
+		artH = 8
+	}
+	if artH <= 0 {
+		artH = 8
+	}
+	artW := m.width / 3
+	if artW < 28 {
+		artW = 28
+	}
+	m.artworkLoading = true
+	return m.loadArtwork(artW*2, artH)
+}
+
+func (m Model) loadArtwork(cols, rows int) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		data, _, err := m.player.Artwork(ctx)
+		if err != nil {
+			return artworkMsg{err: err}
+		}
+		pid := m.status.Track.PersistentID
+		rendered, err := artwork.Render(data, cols, rows, pid)
+		return artworkMsg{persistentID: pid, rendered: rendered, err: err}
+	}
 }

@@ -459,7 +459,9 @@ func (m *MusicAppPlayer) Artwork(ctx context.Context) ([]byte, string, error) {
 			const start = raw.indexOf("$");
 			if (start === -1) return JSON.stringify({ error: "unknown format" });
 			const end = raw.lastIndexOf(")");
-			const hex = raw.substring(start + 1, end !== -1 ? end : raw.length);
+			const sub = raw.substring(start + 1, end !== -1 ? end : raw.length);
+			const hex = sub.replace(/[^0-9A-Fa-f]/g, "");
+			if (hex.length === 0) return JSON.stringify({ error: "empty hex" });
 			return JSON.stringify({ hex: hex });
 		} catch(e) {
 			return JSON.stringify({ error: e.message });
