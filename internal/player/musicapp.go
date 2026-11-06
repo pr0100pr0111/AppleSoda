@@ -493,3 +493,33 @@ func (m *MusicAppPlayer) Artwork(ctx context.Context) ([]byte, string, error) {
 
 	return data, format, nil
 }
+
+func (m *MusicAppPlayer) Lyrics(ctx context.Context) (string, error) {
+	if err := m.checkRunning(ctx); err != nil {
+		return "", err
+	}
+	script := `(() => {
+        try {
+            const app = Application("Music");
+            const tr = app.currentTrack();
+            if (!tr) return JSON.stringify({ lyrics: "" });
+            let lyr = "";
+            try { lyr = tr.lyrics() || ""; } catch(e) {}
+            return JSON.stringify({ lyrics: lyr });
+        } catch(e) {
+            return JSON.stringify({ error: e.message });
+        }
+    })()`
+	out, err := runJXA(ctx, script)
+	if err != nil {
+		return "", err
+	}
+	var res struct {
+		Lyrics string `json:"lyrics"`
+		Error  string `json:"error"`
+	}
+	if err := json.Unmarshal(out, &res); err != nil {
+		return "", fmt.Errorf("parse lyrics response: %w", err)
+	}
+	return res.Lyrics, nil
+}

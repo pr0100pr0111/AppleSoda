@@ -45,9 +45,11 @@ func (m Model) View() tea.View {
 
 func (m Model) renderFullLayout() string {
 	headerHeight := 1
-	transportHeight := 3
-	vizHeight := 7
-	if m.height < 25 {
+	transportHeight := 2
+	vizHeight := 6
+	if m.height < 20 {
+		vizHeight = 3
+	} else if m.height < 25 {
 		vizHeight = 4
 	}
 
@@ -93,10 +95,8 @@ func (m Model) renderHeader() string {
 func (m Model) renderMainArea(height int) string {
 	if m.width >= 120 {
 		return m.renderWideMain(height)
-	} else if m.width >= 80 {
-		return m.renderMediumMain(height)
 	}
-	return m.renderNarrowMain(height)
+	return m.renderMediumMain(height)
 }
 
 func (m Model) renderWideMain(height int) string {
@@ -118,7 +118,13 @@ func (m Model) renderWideMain(height int) string {
 }
 
 func (m Model) renderMediumMain(height int) string {
-	rightWidth := m.width * 2 / 5
+	rightWidth := m.width / 2
+	if m.width >= 90 {
+		rightWidth = m.width * 2 / 5
+	}
+	if rightWidth < 28 {
+		rightWidth = 28
+	}
 	leftWidth := m.width - rightWidth
 
 	var left string
@@ -324,23 +330,6 @@ func (m Model) renderNowPlayingPanel(width, height int) string {
 		innerH = 0
 	}
 
-	var sections []string
-
-	if m.showCover && innerH >= 8 {
-		artH := innerH / 3
-		if artH > 8 {
-			artH = 8
-		}
-		pid := m.status.Track.PersistentID
-		art, ok := m.artworkCache[pid]
-		if !ok {
-			art = renderArtworkStub(innerW, artH, m.theme)
-		}
-		if art != "" {
-			sections = append(sections, art)
-		}
-	}
-
 	trackName := "Nothing playing"
 	artistName := "Select a track and press Enter"
 	albumName := ""
@@ -354,27 +343,72 @@ func (m Model) renderNowPlayingPanel(width, height int) string {
 	artistSt := lipgloss.NewStyle().Foreground(m.theme.Accent)
 	albumSt := lipgloss.NewStyle().Foreground(m.theme.Muted)
 
-	info := titleSt.Render(truncateStr(trackName, innerW)) + "\n" +
-		artistSt.Render(truncateStr(artistName, innerW))
-	if albumName != "" {
-		info += "\n" + albumSt.Render(truncateStr(albumName, innerW))
-	}
-	sections = append(sections, info)
+	showCoverNow := m.showCover && innerH >= 7 && innerW >= 24
+	var header string
 
-	if m.showLyrics {
-		usedLines := 0
-		for _, s := range sections {
-			usedLines += strings.Count(s, "\n") + 1
+	if showCoverNow {
+		artH := 4
+		if innerH < 10 {
+			artH = 3
+		} else if innerH >= 16 && m.height >= 30 {
+			artH = 6
 		}
-		remainingH := innerH - usedLines - 1
-		if remainingH >= 3 {
-			lyricView := renderLyricsStub(innerW, remainingH, m.interpPos, m.theme)
-			sections = append(sections, lyricView)
+		artW := artH * 2
+		pid := m.status.Track.PersistentID
+		art, ok := m.artworkCache[pid]
+		if !ok || art == "" {
+			art = renderArtworkStub(artW, artH, m.theme)
 		}
+
+		artLines := strings.Split(art, "\n")
+		if len(artLines) > artH {
+			artLines = artLines[:artH]
+		}
+		for len(artLines) < artH {
+			artLines = append(artLines, strings.Repeat(" ", artW))
+		}
+		for i, l := range artLines {
+			artLines[i] = truncateStr(l, artW)
+		}
+		art = strings.Join(artLines, "\n")
+
+		infoW := innerW - artW - 1
+		if infoW < 8 {
+			infoW = 8
+		}
+
+		info := titleSt.Render(truncateStr(trackName, infoW)) + "\n" +
+			artistSt.Render(truncateStr(artistName, infoW))
+		if albumName != "" && artH >= 4 && innerH > 8 {
+			info += "\n" + albumSt.Render(truncateStr(albumName, infoW))
+		}
+
+		header = lipgloss.JoinHorizontal(lipgloss.Top, art, " ", info)
+	} else {
+		info := titleSt.Render(truncateStr(trackName, innerW)) + "\n" +
+			artistSt.Render(truncateStr(artistName, innerW))
+		if albumName != "" && innerH >= 6 {
+			info += "\n" + albumSt.Render(truncateStr(albumName, innerW))
+		}
+		header = info
 	}
 
-	full := strings.Join(sections, "\n\n")
-	allLines := strings.Split(full, "\n")
+	headerLines := strings.Split(header, "\n")
+	availLyricH := innerH - len(headerLines)
+	if availLyricH > 1 {
+		availLyricH--
+	}
+
+	var allLines []string
+	allLines = append(allLines, headerLines...)
+
+	if m.showLyrics && availLyricH >= 2 {
+		allLines = append(allLines, "")
+		lyricView := m.renderLyrics(innerW, availLyricH)
+		lyricLines := strings.Split(lyricView, "\n")
+		allLines = append(allLines, lyricLines...)
+	}
+
 	if len(allLines) > innerH {
 		allLines = allLines[:innerH]
 	}

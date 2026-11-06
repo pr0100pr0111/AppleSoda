@@ -265,6 +265,10 @@ func (fp *FakePlayer) Artwork(_ context.Context) ([]byte, string, error) {
 	return nil, "", nil
 }
 
+func (fp *FakePlayer) Lyrics(_ context.Context) (string, error) {
+	return "[00:08.00]Driving down the neon highway\n[00:16.00]City lights reflect the rain\n[00:24.00]Shadows dance across the dashboard\n[00:32.00]Echoes of a forgotten name\n[00:40.00]Turn the radio up higher\n[00:48.00]Feel the rhythm in the night\n[00:56.00]We are chasing after midnight\n[01:04.00]Lost inside the synthwave light", nil
+}
+
 func (fp *FakePlayer) IsRunning(_ context.Context) bool {
 	return true
 }

@@ -71,10 +71,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					nextModel, nextCmd = m.handleNextTrack()
 					m = nextModel.(Model)
 				}
-				return m, tea.Batch(nextCmd, m.maybeLoadArtwork())
+				return m, tea.Batch(nextCmd, m.maybeLoadArtwork(), m.maybeLoadLyrics())
 			}
 
-			return m, m.maybeLoadArtwork()
+			return m, tea.Batch(m.maybeLoadArtwork(), m.maybeLoadLyrics())
 		}
 		return m, nil
 	case artworkMsg:
@@ -82,6 +82,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err == nil && msg.rendered != "" {
 			m.artworkCache[msg.persistentID] = msg.rendered
 			m.lastArtworkID = msg.persistentID
+		}
+		return m, nil
+	case lyricsMsg:
+		m.lyricsLoading = false
+		if msg.persistentID == m.status.Track.PersistentID {
+			m.lyricsTrackID = msg.persistentID
+			m.lyricsResult = msg.result
 		}
 		return m, nil
 	case playlistsMsg:
@@ -346,6 +353,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "L":
 		m.showLyrics = !m.showLyrics
+		if m.showLyrics {
+			return m, m.maybeLoadLyrics()
+		}
 		return m, nil
 	case "o":
 		return m, m.launchMusic()

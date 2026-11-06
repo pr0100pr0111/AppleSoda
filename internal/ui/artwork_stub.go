@@ -8,7 +8,7 @@ import (
 )
 
 func renderArtworkStub(width, height int, th theme.Theme) string {
-	if width < 8 || height < 4 {
+	if width < 6 || height < 3 {
 		return ""
 	}
 
@@ -16,8 +16,8 @@ func renderArtworkStub(width, height int, th theme.Theme) string {
 	if size*2 > width {
 		size = width / 2
 	}
-	if size < 4 {
-		size = 4
+	if size < 3 {
+		size = 3
 	}
 
 	cols := size * 2

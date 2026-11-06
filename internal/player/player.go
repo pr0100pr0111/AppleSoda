@@ -108,6 +108,7 @@ type Player interface {
 	ListPlaylists(ctx context.Context) ([]Playlist, error)
 	ListTracks(ctx context.Context, playlistID string, offset, limit int) ([]Track, int, error)
 	Artwork(ctx context.Context) ([]byte, string, error)
+	Lyrics(ctx context.Context) (string, error)
 	IsRunning(ctx context.Context) bool
 	Launch(ctx context.Context) error
 }

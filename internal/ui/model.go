@@ -8,6 +8,7 @@ import (
 	"github.com/pr0100pr0111/AppleSoda/internal/artwork"
 	"github.com/pr0100pr0111/AppleSoda/internal/config"
 	"github.com/pr0100pr0111/AppleSoda/internal/library"
+	"github.com/pr0100pr0111/AppleSoda/internal/lyrics"
 	"github.com/pr0100pr0111/AppleSoda/internal/player"
 	"github.com/pr0100pr0111/AppleSoda/internal/theme"
 )
@@ -49,6 +50,12 @@ type actionDoneMsg struct {
 type artworkMsg struct {
 	persistentID string
 	rendered     string
+	err          error
+}
+
+type lyricsMsg struct {
+	persistentID string
+	result       lyrics.Result
 	err          error
 }
 
@@ -104,6 +111,10 @@ type Model struct {
 	artworkCache   map[string]string
 	artworkLoading bool
 	lastArtworkID  string
+
+	lyricsResult  lyrics.Result
+	lyricsTrackID string
+	lyricsLoading bool
 
 	playingPLID      string
 	playingTracks    []player.Track
@@ -285,19 +296,16 @@ func (m *Model) maybeLoadArtwork() tea.Cmd {
 	if m.status.Track.PersistentID == m.lastArtworkID {
 		return nil
 	}
-	artH := m.height / 3
-	if artH > 8 {
-		artH = 8
+	artH := 4
+	if m.height >= 30 {
+		artH = 6
+	} else if m.height < 20 {
+		artH = 3
 	}
-	if artH <= 0 {
-		artH = 8
-	}
-	artW := m.width / 3
-	if artW < 28 {
-		artW = 28
-	}
+	cols := artH * 2
+	rows := artH
 	m.artworkLoading = true
-	return m.loadArtwork(artW*2, artH)
+	return m.loadArtwork(cols, rows)
 }
 
 func (m Model) loadArtwork(cols, rows int) tea.Cmd {
@@ -311,5 +319,52 @@ func (m Model) loadArtwork(cols, rows int) tea.Cmd {
 		pid := m.status.Track.PersistentID
 		rendered, err := artwork.Render(data, cols, rows, pid)
 		return artworkMsg{persistentID: pid, rendered: rendered, err: err}
+	}
+}
+
+func (m *Model) maybeLoadLyrics() tea.Cmd {
+	if !m.showLyrics || !m.status.HasTrack || m.lyricsLoading {
+		return nil
+	}
+	if m.status.Track.PersistentID == m.lyricsTrackID {
+		return nil
+	}
+	m.lyricsResult = lyrics.Result{}
+	m.lyricsLoading = true
+	return m.loadLyrics()
+}
+
+func (m Model) loadLyrics() tea.Cmd {
+	return func() tea.Msg {
+		pid := m.status.Track.PersistentID
+		artist := m.status.Track.Artist
+		track := m.status.Track.Name
+		album := m.status.Track.Album
+		dur := m.status.Track.Duration
+
+		if cached, ok := lyrics.Load(pid); ok {
+			return lyricsMsg{persistentID: pid, result: cached}
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		r, err := lyrics.Fetch(ctx, artist, track, album, dur)
+		if (!r.Synced && r.Plain == "") || err != nil {
+			ctx2, cancel2 := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel2()
+			plain, _ := m.player.Lyrics(ctx2)
+			if plain != "" {
+				parsed := lyrics.ParseLRC(plain)
+				if len(parsed) > 0 {
+					r = lyrics.Result{Lines: parsed, Synced: true}
+				} else {
+					r = lyrics.Result{Plain: plain}
+				}
+			}
+		}
+
+		lyrics.Save(pid, r)
+		return lyricsMsg{persistentID: pid, result: r, err: err}
 	}
 }
